@@ -49,14 +49,20 @@ def executar_de_rastrigin(F=0.8, CR=0.9, silencioso=True):
     """Executa Differential Evolution para a Função Rastrigin."""
     populacao = gerar_populacao_inicial(POP_SIZE)
     avaliacoes = 0
-    melhor_objetivo_global = np.inf
     historico_convergencia = []
+    
+    #Avaliamos a população inicial uma única vez antes do loop
+    custos_populacao = []
+    for individuo in populacao:
+        custos_populacao.append(funcao_rastrigin(individuo))
+        avaliacoes += 1
+        
+    melhor_objetivo_global = min(custos_populacao)
 
     while avaliacoes < MAX_EVALS:
         for i in range(POP_SIZE):
-            # Avalia indivíduo atual
-            valor_atual = funcao_rastrigin(populacao[i])
-            avaliacoes += 1
+            # O valor_atual agora é resgatado da lista, sem gastar avaliação
+            valor_atual = custos_populacao[i]
 
             # Mutação
             mutante = mutacao_de(populacao, i, F)
@@ -71,6 +77,8 @@ def executar_de_rastrigin(F=0.8, CR=0.9, silencioso=True):
 
             if valor_trial < valor_atual:
                 populacao[i] = trial
+                # Atualiza o custo do indivíduo na lista
+                custos_populacao[i] = valor_trial
 
             if valor_trial < melhor_objetivo_global:
                 melhor_objetivo_global = valor_trial
