@@ -11,9 +11,19 @@ dependencies = [
 
 [project.scripts]
 rastrigin = "codigo.rastrigin:main"
+rastrigin_de = "codigo.rastrigin_de:main"
+rastrigin_pso = "codigo.rastrigin_pso:main"
 n_rainhas = "codigo.n_rainhas:main"
 plot_rastrigin = "codigo.plot_rastrigin:main"
+plot_rastrigin_de = "codigo.plot_rastrigin_de:main"
+plot_rastrigin_pso = "codigo.plot_rastrigin_pso:main"
 plot_n_rainhas = "codigo.plot_n_rainhas:main"
+tsp_ga = "codigo.tsp_ga:main"
+tsp_de = "codigo.tsp_de:main"
+tsp_pso = "codigo.tsp_pso:main"
+plot_tsp_ga = "codigo.plot_tsp_ga:main"
+plot_tsp_de = "codigo.plot_tsp_de:main"
+plot_tsp_pso = "codigo.plot_tsp_pso:main"
 
 
 [build-system]
