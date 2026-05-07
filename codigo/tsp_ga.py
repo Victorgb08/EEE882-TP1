@@ -70,14 +70,6 @@ def selecao_torneio(populacao, aptidoes, k=3):
     selecionados = random.sample(list(zip(populacao, aptidoes)), k)
     return min(selecionados, key=lambda x: x[1])[0]
 
-def selecao_roleta(populacao, aptidoes):
-    """Seleciona um indivíduo proporcionalmente à sua aptidão (invertida)."""
-    max_aptidao = max(aptidoes)
-    aptidoes_inv = [max_aptidao - a + 1 for a in aptidoes]
-    soma = sum(aptidoes_inv)
-    probs = [a / soma for a in aptidoes_inv]
-    return populacao[np.random.choice(len(populacao), p=probs)]
-
 def ordered_crossover(pai1, pai2):
     """Ordered Crossover (OX) para permutações."""
     n = len(pai1)
@@ -95,36 +87,6 @@ def ordered_crossover(pai1, pai2):
 
     return filho
 
-def pmx_crossover(pai1, pai2):
-    """Partially Mapped Crossover (PMX) para permutações."""
-    n = len(pai1)
-    inicio = random.randint(0, n - 2)
-    fim = random.randint(inicio + 1, n - 1)
-
-    filho = [-1] * n
-    filho[inicio:fim + 1] = pai1[inicio:fim + 1]
-
-    mapeamento = {}
-    for i in range(inicio, fim + 1):
-        mapeamento[pai2[i]] = pai1[i]
-
-    for i in range(n):
-        if inicio <= i <= fim:
-            continue
-        cidade = pai2[i]
-        while cidade in mapeamento:
-            cidade = mapeamento[cidade]
-        filho[i] = cidade
-
-    return filho
-
-def mutacao_swap(individuo, pm):
-    """Mutação por troca: troca duas cidades aleatórias."""
-    if random.random() < pm:
-        n = len(individuo)
-        i, j = random.sample(range(n), 2)
-        individuo[i], individuo[j] = individuo[j], individuo[i]
-
 def mutacao_inversion(individuo, pm):
     """Mutação por inversão: inverte um segmento da rota."""
     if random.random() < pm:
@@ -133,8 +95,29 @@ def mutacao_inversion(individuo, pm):
         fim = random.randint(inicio + 1, n - 1)
         individuo[inicio:fim + 1] = reversed(individuo[inicio:fim + 1])
 
-def executar_ga_tsp(arquivo_tsp, pc=0.9, pm=0.05, crossover='ox', silencioso=True):
-    """Executa Algoritmo Genético para o problema TSP."""
+# --- INJEÇÃO DA NOSSA INTELIGÊNCIA MEMÉTICA AQUI ---
+def busca_local_2opt(rota, matriz_distancias):
+    """Aplica a heurística 2-opt para resolver cruzamentos na rota localmente."""
+    n = len(rota)
+    melhorou = True
+    while melhorou:
+        melhorou = False
+        for i in range(1, n - 1):
+            for j in range(i + 1, n):
+                n_i_prev, n_i = rota[i-1], rota[i]
+                n_j_prev, n_j = rota[j-1], rota[j] if j < n - 1 else rota[0]
+                
+                d_atual = matriz_distancias[n_i_prev][n_i] + matriz_distancias[n_j_prev][n_j]
+                d_novo = matriz_distancias[n_i_prev][n_j_prev] + matriz_distancias[n_i][n_j]
+                
+                if d_novo < d_atual:
+                    rota[i:j] = rota[i:j][::-1]
+                    melhorou = True
+    return rota
+# ---------------------------------------------------
+
+def executar_ga_tsp(arquivo_tsp, pc=0.9, pm=0.05, silencioso=True):
+    """Executa Algoritmo Genético (Memético) para o problema TSP."""
     coordenadas = ler_instancia_tsp(arquivo_tsp)
     matriz_distancias = calcular_matriz_distancias(coordenadas)
     n_cidades = len(coordenadas)
@@ -144,38 +127,43 @@ def executar_ga_tsp(arquivo_tsp, pc=0.9, pm=0.05, crossover='ox', silencioso=Tru
     melhor_objetivo_global = np.inf
     historico_convergencia = []
 
+    # Ajuste: Elitismo agressivo de 5% (5 indivíduos) em vez de apenas 1
+    elitism_count = int(0.05 * POP_SIZE)
+
     while avaliacoes < MAX_EVALS:
         aptidoes = [avaliar_tsp(ind, matriz_distancias) for ind in populacao]
         avaliacoes += POP_SIZE
 
+        # Identifica o melhor da geração e atualiza o histórico
         melhor_valor_geracao = min(aptidoes)
         if melhor_valor_geracao < melhor_objetivo_global:
             melhor_objetivo_global = melhor_valor_geracao
 
         historico_convergencia.append(melhor_objetivo_global)
 
-        nova_populacao = []
-
-        melhor_idx = np.argmin(aptidoes)
-        nova_populacao.append(populacao[melhor_idx])
+        # Ordena a população para extrair a elite
+        populacao_ordenada = [x for _, x in sorted(zip(aptidoes, populacao))]
+        nova_populacao = [list(ind) for ind in populacao_ordenada[:elitism_count]]
 
         while len(nova_populacao) < POP_SIZE:
             pai1 = selecao_torneio(populacao, aptidoes)
             pai2 = selecao_torneio(populacao, aptidoes)
 
             if random.random() < pc:
-                if crossover == 'ox':
-                    filho1 = ordered_crossover(pai1, pai2)
-                    filho2 = ordered_crossover(pai2, pai1)
-                else:
-                    filho1 = pmx_crossover(pai1, pai2)
-                    filho2 = pmx_crossover(pai2, pai1)
+                filho1 = ordered_crossover(pai1, pai2)
+                filho2 = ordered_crossover(pai2, pai1)
             else:
                 filho1 = list(pai1)
                 filho2 = list(pai2)
 
             mutacao_inversion(filho1, pm)
             mutacao_inversion(filho2, pm)
+
+            # --- INJEÇÃO DA NOSSA INTELIGÊNCIA MEMÉTICA AQUI ---
+            # Refina os filhos recém-nascidos antes de irem para a população
+            filho1 = busca_local_2opt(filho1, matriz_distancias)
+            filho2 = busca_local_2opt(filho2, matriz_distancias)
+            # ---------------------------------------------------
 
             nova_populacao.extend([filho1, filho2])
 
@@ -187,29 +175,26 @@ def executar_ga_tsp(arquivo_tsp, pc=0.9, pm=0.05, crossover='ox', silencioso=Tru
     return melhor_objetivo_global, historico_convergencia
 
 def realizar_grid_search(repeticoes_por_teste=5):
-    """Testa diferentes combinações de pc e pm para encontrar a melhor configuração."""
+    """Testa diferentes combinações de pc e pm."""
     valores_pc = [0.7, 0.9]
     valores_pm = [0.01, 0.05]
     arquivo = "./codigo/att48.tsp"
 
-    print(f"Iniciando Grid Search TSP (Avaliando {len(valores_pc) * len(valores_pm)} combinações, {repeticoes_por_teste} vezes cada)...")
+    print(f"Iniciando Grid Search TSP Memético (Avaliando {len(valores_pc) * len(valores_pm)} combinações, {repeticoes_por_teste} vezes cada)...")
     print("-" * 55)
     print(f"{'p_c':<6} | {'p_m':<6} | {'Média Distância':<18} | {'Melhor Encontrado'}")
     print("-" * 55)
 
     melhor_configuracao = None
     melhor_media_geral = np.inf
-    melhor_historico = []
 
     for pc in valores_pc:
         for pm in valores_pm:
             resultados = []
-            historicos = []
 
             for _ in range(repeticoes_por_teste):
-                resultado, historico = executar_ga_tsp(arquivo, pc, pm, silencioso=True)
+                resultado, _ = executar_ga_tsp(arquivo, pc, pm, silencioso=True)
                 resultados.append(resultado)
-                historicos.append(historico)
 
             media_resultados = np.mean(resultados)
             melhor_absoluto = np.min(resultados)
@@ -219,16 +204,12 @@ def realizar_grid_search(repeticoes_por_teste=5):
             if media_resultados < melhor_media_geral:
                 melhor_media_geral = media_resultados
                 melhor_configuracao = (pc, pm)
-                melhor_historico = historicos[np.argmin(resultados)]
 
     print("-" * 55)
     print(f"Melhor configuração encontrada: p_c = {melhor_configuracao[0]}, p_m = {melhor_configuracao[1]}")
-    print(f"Com média de: {melhor_media_geral:.2f}")
+    print(f"Com média de: {melhor_media_geral:.2f} (Ótimo conhecido: 10628)")
 
-    return melhor_configuracao, melhor_historico
-
-def main():
-    realizar_grid_search(repeticoes_por_teste=5)
+    return melhor_configuracao
 
 if __name__ == "__main__":
-    main()
+    realizar_grid_search(repeticoes_por_teste=3)
