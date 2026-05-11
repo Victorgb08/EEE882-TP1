@@ -95,7 +95,6 @@ def mutacao_inversion(individuo, pm):
         fim = random.randint(inicio + 1, n - 1)
         individuo[inicio:fim + 1] = reversed(individuo[inicio:fim + 1])
 
-# --- INJEÇÃO DA NOSSA INTELIGÊNCIA MEMÉTICA AQUI ---
 def busca_local_2opt(rota, matriz_distancias):
     """Aplica a heurística 2-opt para resolver cruzamentos na rota localmente."""
     n = len(rota)
@@ -127,7 +126,6 @@ def executar_ga_tsp(arquivo_tsp, pc=0.9, pm=0.05, silencioso=True):
     melhor_objetivo_global = np.inf
     historico_convergencia = []
 
-    # Ajuste: Elitismo agressivo de 5% (5 indivíduos) em vez de apenas 1
     elitism_count = int(0.05 * POP_SIZE)
 
     while avaliacoes < MAX_EVALS:
@@ -159,7 +157,6 @@ def executar_ga_tsp(arquivo_tsp, pc=0.9, pm=0.05, silencioso=True):
             mutacao_inversion(filho1, pm)
             mutacao_inversion(filho2, pm)
 
-            # --- INJEÇÃO DA NOSSA INTELIGÊNCIA MEMÉTICA AQUI ---
             # Refina os filhos recém-nascidos antes de irem para a população
             filho1 = busca_local_2opt(filho1, matriz_distancias)
             filho2 = busca_local_2opt(filho2, matriz_distancias)
